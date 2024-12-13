@@ -1,9 +1,15 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { addTodo, delTodo, get, updTodo } from './api/todos';
 import { TodoInterface } from './types/Todo';
 import { Filter } from './types/filter';
-import { TodoList } from './components/todoList/todoList';
-import { FilteredTodoList } from './components/footer/filteredTodoList';
+import { TodoList } from './components/todoList/TodoList';
+import { FilteredTodoList } from './components/footer/FilteredTodoList';
 import classNames from 'classnames';
 
 export const App: React.FC = () => {
@@ -12,17 +18,16 @@ export const App: React.FC = () => {
   const [value, setValue] = useState('');
   const [tempTodo, setTempTodo] = useState<TodoInterface | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
-  const [active, setActive] = useState(false);
   const [todosForModify, setTodosForModify] = useState<TodoInterface[]>([]);
 
   const inputForFocusRef = useRef<HTMLInputElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
 
-  const hideNotification = () => {
+  const hideNotification = useCallback(() => {
     if (notificationRef.current) {
       notificationRef.current.classList.add('hidden');
     }
-  };
+  }, []);
 
   const errorHandling = (error: Error) => {
     if (notificationRef.current) {
@@ -75,19 +80,17 @@ export const App: React.FC = () => {
     };
 
     fetchTodos();
-  }, []);
+  }, [hideNotification]);
 
   const allTodosComplited = useMemo(() => {
     return todos.every(item => item.completed);
   }, [todos]);
 
+  const [active, setActive] = useState(allTodosComplited);
+
   useEffect(() => {
-    if (allTodosComplited) {
-      setActive(true);
-    } else {
-      setActive(false);
-    }
-  }, [allTodosComplited, active]);
+    setActive(allTodosComplited);
+  }, [allTodosComplited]);
 
   useEffect(() => {
     if (inputForFocusRef.current && !tempTodo) {
@@ -165,6 +168,35 @@ export const App: React.FC = () => {
     setTodosForModify([]);
   };
 
+  const handleClose = () => {
+    if (notificationRef.current) {
+      notificationRef.current.classList.add('hidden');
+    }
+  };
+
+  const filteredTodos = useMemo(() => {
+    return todos.filter(todo => {
+      switch (filter) {
+        case Filter.All:
+          return true;
+        case Filter.Active:
+          return !todo.completed;
+        case Filter.Completed:
+          return todo.completed;
+        default:
+          return true;
+      }
+    });
+  }, [todos, filter]);
+
+  const handleChangeValue = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (notificationRef.current) {
+      notificationRef.current.classList.add('hidden');
+    }
+
+    setValue(e.target.value);
+  };
+
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -178,53 +210,24 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleClose = () => {
-    if (notificationRef.current) {
-      notificationRef.current.classList.add('hidden');
-    }
-  };
-
-  const filteredTodos = (): TodoInterface[] => {
-    return todos.filter(todo => {
-      switch (filter) {
-        case Filter.All:
-          return true;
-        case Filter.Active:
-          return !todo.completed;
-        case Filter.Completed:
-          return todo.completed;
-        default:
-          return true;
-      }
-    });
-  };
-
-  const handleChangeValue = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (notificationRef.current) {
-      notificationRef.current.classList.add('hidden');
-    }
-
-    setValue(e.target.value);
-  };
-
-  const handleUpdateStatus = () => {
+  const handleUpdateStatus = async () => {
     const copyTodos = [...todos];
 
+    let content;
+
     if (active) {
-      const content = copyTodos.map(item => ({ ...item, completed: false }));
-
-      setTodosForModify(content);
-
-      updateTodos(content);
+      content = copyTodos.map(item => ({ ...item, completed: false }));
     } else {
-      const content = copyTodos
+      content = copyTodos
         .filter(todo => !todo.completed)
         .map(item => ({ ...item, completed: true }));
-
-      setTodosForModify(content);
-
-      updateTodos(content);
     }
+
+    setTodosForModify(content);
+
+    await Promise.allSettled(content.map(todo => updateTodos([todo])));
+
+    setTodosForModify([]);
   };
 
   return (
@@ -258,7 +261,7 @@ export const App: React.FC = () => {
 
         {todos.length > 0 && (
           <TodoList
-            filteredTodos={filteredTodos()}
+            filteredTodos={filteredTodos}
             deleteTodos={deleteTodos}
             tempTodo={tempTodo}
             setTodosForModify={setTodosForModify}

@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { TodoInterface } from '../../types/todo';
+import { useMemo } from 'react';
+import { TodoInterface } from '../../types/Todo';
 import cn from 'classnames';
 import { Filter } from '../../types/filter';
 
@@ -21,13 +21,11 @@ export const FilteredTodoList: React.FC<Props> = ({
 
   setTodosForModify,
 }) => {
-  const countNotCompletedItem = useCallback(() => {
+  const countNotCompletedItem = useMemo(() => {
     const filtered = todos.filter(todo => !todo.completed);
 
     return filtered.length;
   }, [todos]);
-
-  const notCompletedItem = countNotCompletedItem();
 
   const handledeleteTodos = () => {
     setTodosForModify(() => {
@@ -42,7 +40,7 @@ export const FilteredTodoList: React.FC<Props> = ({
   return (
     <footer className="todoapp__footer" data-cy="Footer">
       <span className="todo-count" data-cy="TodosCounter">
-        {`${notCompletedItem} items left`}
+        {`${countNotCompletedItem} items left`}
       </span>
 
       <nav className="filter" data-cy="Filter">
@@ -66,7 +64,7 @@ export const FilteredTodoList: React.FC<Props> = ({
         className="todoapp__clear-completed"
         data-cy="ClearCompletedButton"
         onClick={handledeleteTodos}
-        disabled={todos.length - notCompletedItem === 0}
+        disabled={todos.length - countNotCompletedItem === 0}
       >
         Clear completed
       </button>
