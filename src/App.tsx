@@ -144,6 +144,8 @@ export const App: React.FC = () => {
   };
 
   const updateTodos = async (updateTodo: TodoInterface[]) => {
+    const updatedTodos: TodoInterface[] = [];
+
     for (const upTodo of updateTodo) {
       try {
         const updatedTodo = (await updTodo(upTodo)) as TodoInterface;
@@ -157,6 +159,8 @@ export const App: React.FC = () => {
           return newTodosList;
         });
 
+        updatedTodos.push(updatedTodo);
+
         if (inputForFocusRef.current) {
           inputForFocusRef.current.focus();
         }
@@ -166,6 +170,8 @@ export const App: React.FC = () => {
     }
 
     setTodosForModify([]);
+
+    return updatedTodos;
   };
 
   const handleClose = () => {
@@ -225,7 +231,27 @@ export const App: React.FC = () => {
 
     setTodosForModify(content);
 
-    await Promise.allSettled(content.map(todo => updateTodos([todo])));
+    await Promise.allSettled(content.map(todo => updateTodos([todo]))).then(
+      results => {
+        const successfulResults = results
+          .filter(result => result.status === 'fulfilled')
+          .flatMap(result => result.value);
+
+        setTodos(currnet => {
+          const newList = [...currnet];
+
+          successfulResults.forEach(updatedTodo => {
+            const index = newList.findIndex(todo => todo.id === updatedTodo.id);
+
+            if (index !== -1) {
+              newList[index] = updatedTodo;
+            }
+          });
+
+          return newList;
+        });
+      },
+    );
 
     setTodosForModify([]);
   };
